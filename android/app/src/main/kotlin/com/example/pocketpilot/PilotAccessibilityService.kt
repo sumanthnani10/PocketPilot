@@ -7,6 +7,9 @@ import android.graphics.Rect
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
 
 class PilotAccessibilityService : AccessibilityService() {
 
@@ -153,5 +156,45 @@ class PilotAccessibilityService : AccessibilityService() {
             .addStroke(GestureDescription.StrokeDescription(path, 0, 100))
             .build()
         return dispatchGesture(gesture, null, null)
+    }
+
+    fun showSystemToast(message: String) {
+        Handler(Looper.getMainLooper()).post {
+            try {
+                val windowManager = getSystemService(WINDOW_SERVICE) as android.view.WindowManager
+                val textView = android.widget.TextView(this).apply {
+                    text = message
+                    setBackgroundColor(android.graphics.Color.parseColor("#CC000000"))
+                    setTextColor(android.graphics.Color.WHITE)
+                    setPadding(32, 24, 32, 24)
+                    textSize = 14f
+                    gravity = android.view.Gravity.CENTER
+                }
+
+                val params = android.view.WindowManager.LayoutParams(
+                    android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+                    android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+                    android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                    android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                            android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                            android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    android.graphics.PixelFormat.TRANSLUCENT
+                ).apply {
+                    gravity = android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL
+                    y = 200
+                }
+
+                windowManager.addView(textView, params)
+
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        windowManager.removeView(textView)
+                    } catch (e: Exception) {}
+                }, 2500)
+            } catch (e: Exception) {
+                // Fallback attempt if window overlay fails
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }

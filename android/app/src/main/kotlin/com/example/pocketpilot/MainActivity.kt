@@ -98,6 +98,20 @@ class MainActivity : FlutterActivity() {
                         result.error("UNAVAILABLE", "Accessibility Service not running.", null)
                     }
                 }
+                "showToast" -> {
+                    val message = call.argument<String>("message")
+                    val service = PilotAccessibilityService.instance
+                    if (message != null) {
+                        if (service != null) {
+                            service.showSystemToast(message)
+                        } else {
+                            android.widget.Toast.makeText(this@MainActivity, message, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARG", "Message is required.", null)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }

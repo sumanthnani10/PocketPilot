@@ -68,4 +68,16 @@ class AccessibilityService {
       return false;
     }
   }
+
+  static Future<bool> showGlobalToast(String message) async {
+    try {
+      final bool result = await _channel.invokeMethod('showToast', {
+        'message': message,
+      });
+      return result;
+    } on PlatformException catch (e) {
+      print("Failed to show toast: '${e.message}'.");
+      return false;
+    }
+  }
 }

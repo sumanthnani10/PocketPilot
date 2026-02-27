@@ -65,6 +65,7 @@ class _MainScreenState extends State<MainScreen> {
   void _log(String message) {
     final logText = '${DateTime.now().toLocal().toString().split(".")[0]}: $message';
     debugPrint(logText);
+    AccessibilityService.showGlobalToast(logText);
     setState(() {
       _logs.add(logText);
     });
