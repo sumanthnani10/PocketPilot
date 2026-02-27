@@ -1,4 +1,4 @@
-package com.example.pocketpilot
+package com.sumanth.pocketpilot
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
