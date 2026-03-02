@@ -19,7 +19,7 @@
     <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter" /></a>
     <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-0095D5?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin" /></a>
     <a href="https://ai.google.dev/"><img src="https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=google%20gemini&logoColor=white" alt="Google Gemini" /></a>
-    <a href="https://github.com/sumanthnani10/PocketPilot/blob/main/LICENSE"><img src="https://img.shields.io/github/license/sumanthnani10/PocketPilot?style=for-the-badge" alt="License"></a>
+    <a href="https://github.com/sumanthnani10/PocketPilot/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Non--Commercial-red.svg?style=for-the-badge" alt="License"></a>
     <a href="https://github.com/sumanthnani10/PocketPilot/graphs/contributors"><img src="https://img.shields.io/github/contributors/sumanthnani10/PocketPilot?style=for-the-badge" alt="Contributors"></a>
     <a href="https://github.com/sumanthnani10/PocketPilot/stargazers"><img src="https://img.shields.io/github/stars/sumanthnani10/PocketPilot?style=for-the-badge" alt="Stars"></a>
   </p>
@@ -58,13 +58,14 @@
 
 [![PocketPilot Product Screenshot][product-screenshot]](https://github.com/sumanthnani10/PocketPilot)
 
-**PocketPilot** is a revolutionary, open-source Android automation framework that bridges the gap between **Large Language Models (LLMs)** and **on-device actions**. Think of it as a conversational RPA (Robotic Process Automation) tool native to your smartphone. 
+**PocketPilot** is a revolutionary, open-source **Android automation** framework that bridges the gap between **Large Language Models (LLMs)** and **on-device actions**. Think of it as a conversational **mobile RPA** (Robotic Process Automation) tool native to your smartphone. If you are looking for **agentic AI in mobile** or **Android RPA** solutions, PocketPilot provides an intelligent and adaptable approach.
 
-Instead of dealing with rigid visual scripting or brittle X/Y coordinates that break upon UI updates, PocketPilot relies on strict **Cognitive Automation**. You talk naturally, and the agent dynamically understands the app's structure, adapts to UI changes on the fly, and figures out how to execute your intent autonomously.
+Instead of dealing with rigid visual scripting or brittle X/Y coordinates that break upon UI updates, PocketPilot relies on strict **cognitive automation** and **mobile AI automation**. You talk naturally, and the agent dynamically understands the app's structure, adapts to UI changes on the fly, and figures out how to execute your intent autonomously.
 
 ### 🌟 Core Features
 
 * **🗣️ Natural Language Control:** Issue commands like *"Post my latest photo on Instagram"* or *"Turn on the living room AC"* and let the AI plan the exact steps to accomplish it.
+* **🤝 Accessibility & Assistive Tech:** By enabling full voice-to-action control and bypassing complex visual navigation, PocketPilot acts as a powerful assistive tool, empowering users with motor or visual impairments to interact with any app effortlessly.
 * **👁️ Context-Aware Perception:** Utilizes deep Android `AccessibilityService` APIs to read and map out a comprehensive, node-based DOM of the current screen.
 * **🧠 Cognitive AI Planning:** Powered by Google's **Gemini API**, which represents the "brain" navigating unknown or complex screen layouts to safely fulfill tasks.
 * **⚡ Native Execution Engine:** Seamlessly executes node-based actions (taps, scrolls, text-entry) natively, drastically improving reliability over traditional coordinate-based macro tools.
@@ -198,7 +199,7 @@ Don't forget to give the project a ⭐! Thanks again!
 
 ## � License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the **PolyForm Noncommercial License 1.0.0**. See `LICENSE` for more information and commercial terms.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
