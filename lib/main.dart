@@ -44,7 +44,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin {
+class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   bool _isAccessibilityEnabled = true; // Defaulting to true for demo but checked realistically
   final TextEditingController _taskController = TextEditingController();
   String _apiKey = '';
@@ -61,6 +61,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
     _loadSettings();
     _checkAccessibility();
@@ -78,10 +79,18 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animController.dispose();
     _taskController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_isAccessibilityEnabled) {
+      _checkAccessibility();
+    }
   }
 
   Future<void> _loadSettings() async {
