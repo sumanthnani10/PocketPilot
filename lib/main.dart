@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'settings_page.dart';
 import 'accessibility_service.dart';
 import 'gemini_service.dart';
 
@@ -9,7 +13,7 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: ".env");
   } catch (e) {
-    print("Could not load .env file: $e");
+    debugPrint("Could not load .env file: \$e");
   }
   runApp(const PocketPilotApp());
 }
@@ -19,11 +23,14 @@ class PocketPilotApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return ShadApp(
       title: 'PocketPilot',
-      theme: ThemeData.dark().copyWith(
-        primaryColor: Colors.teal,
-        colorScheme: const ColorScheme.dark(primary: Colors.teal, secondary: Colors.tealAccent),
+      debugShowCheckedModeBanner: false,
+      theme: ShadThemeData(
+        brightness: Brightness.light,
+        colorScheme: const ShadZincColorScheme.light(
+          primary: Color(0xFF4F46E5), // Indigo 600
+        ),
       ),
       home: const MainScreen(),
     );
@@ -37,38 +44,100 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
-  bool _isAccessibilityEnabled = false;
+class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin {
+  bool _isAccessibilityEnabled = true; // Defaulting to true for demo but checked realistically
   final TextEditingController _taskController = TextEditingController();
-  final TextEditingController _apiKeyController = TextEditingController();
+  String _apiKey = '';
   final List<String> _logs = [];
+  final ScrollController _scrollController = ScrollController();
 
   bool _isRunning = false;
   bool _isPaused = false;
   
   GeminiService? _geminiService;
+  late AnimationController _animController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
-    _apiKeyController.text = dotenv.env['GEMINI_API_KEY'] ?? '';
+    _apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    _loadSettings();
     _checkAccessibility();
+
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    _taskController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedKey = prefs.getString('GEMINI_API_KEY');
+    if (savedKey != null && savedKey.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _apiKey = savedKey;
+        });
+      }
+    }
+  }
+
+  void _openSettings() async {
+    final newKey = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SettingsPage(initialApiKey: _apiKey),
+      ),
+    );
+    if (newKey != null && newKey is String && mounted) {
+      setState(() {
+        _apiKey = newKey;
+      });
+    }
   }
 
   void _checkAccessibility() async {
     final enabled = await AccessibilityService.isServiceEnabled();
-    setState(() {
-      _isAccessibilityEnabled = enabled;
-    });
+    if (mounted) {
+      setState(() {
+        _isAccessibilityEnabled = enabled;
+      });
+    }
   }
 
   void _log(String message) {
-    final logText = '${DateTime.now().toLocal().toString().split(".")[0]}: $message';
+    final time = DateTime.now().toLocal().toString().split(" ")[1].substring(0, 8);
+    final logText = '[$time] $message';
     debugPrint(logText);
     AccessibilityService.showGlobalToast(logText);
-    setState(() {
-      _logs.add(logText);
-    });
+    if (mounted) {
+      setState(() {
+        _logs.add(logText);
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
   }
 
   Future<void> _agentLoop() async {
@@ -89,11 +158,14 @@ class _MainScreenState extends State<MainScreen> {
       _log("Action: $stepResult");
 
       if (stepResult.contains('Task completed!') || stepResult.contains('Need help:')) {
-        _isRunning = false;
+        if (mounted) {
+          setState(() {
+            _isRunning = false;
+          });
+        }
         break;
       }
       
-      // Wait a moment between actions for screen to update
       await Future.delayed(const Duration(seconds: 3));
     }
   }
@@ -101,9 +173,10 @@ class _MainScreenState extends State<MainScreen> {
   void _startTask() {
     if (!_isAccessibilityEnabled) {
       _log("Please enable Accessibility Service first.");
+      _showSettingsDialog();
       return;
     }
-    final apiKey = _apiKeyController.text.trim();
+    final apiKey = _apiKey.trim();
     if (apiKey.isEmpty) {
       _log("Please enter a Gemini API Key.");
       return;
@@ -149,123 +222,391 @@ class _MainScreenState extends State<MainScreen> {
     _agentLoop();
   }
 
+  void _showSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Accessibility Required"),
+          content: const Text("PocketPilot needs accessibility permissions to observe and interact with apps on your behalf."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                AccessibilityService.openSettings();
+              },
+              child: const Text("Open Settings"),
+            ),
+          ],
+        );
+      }
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('PocketPilot AI'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              _checkAccessibility();
-              _log("Checked accessibility status.");
-            },
+      backgroundColor: const Color(0xFFF0F4F8), // Very light bright grayish blue tech background
+      body: Stack(
+        children: [
+          // Background Techy Animated Blobs / Gradients
+          Positioned(
+            top: -100,
+            left: -100,
+            child: ScaleTransition(
+              scale: _pulseAnimation,
+              child: Container(
+                width: 400,
+                height: 400,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [Color(0xFF00C9FF), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -50,
+            right: -100,
+            child: ScaleTransition(
+              scale: _pulseAnimation,
+              child: Container(
+                width: 500,
+                height: 500,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [Color(0xFFFF92FE), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Glassmorphism effect
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+              child: Container(color: const Color(0x4DFFFFFF)), // White at ~30% alpha
+            ),
+          ),
+          // App Content
+          SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildStatusBanner(),
+                        const SizedBox(height: 24),
+                        _buildTaskCard(),
+                        const SizedBox(height: 24),
+                        _buildControls(),
+                        const SizedBox(height: 32),
+                        _buildLogsSection(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF8A2387), Color(0xFFE94057), Color(0xFFF27121)]),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x66E94057), blurRadius: 10, offset: Offset(0, 4)),
+                    ],
+                  ),
+                  child: const Icon(LucideIcons.rocket, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'PocketPilot',
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: -0.5, color: Color(0xFF1E293B)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: ShadButton(
+                  padding: EdgeInsets.zero,
+                  backgroundColor: Colors.white,
+                  onPressed: () {
+                    _checkAccessibility();
+                    _log("Status refreshed.");
+                  },
+                  child: const Icon(Icons.refresh, size: 20, color: Color(0xFF1E293B)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: ShadButton(
+                  padding: EdgeInsets.zero,
+                  backgroundColor: Colors.white,
+                  onPressed: _openSettings,
+                  child: const Icon(Icons.settings, size: 20, color: Color(0xFF1E293B)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBanner() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: _isAccessibilityEnabled 
+          ? const Color(0x1A10B981) // Green at 10%
+          : const Color(0x1AEF4444), // Red at 10%
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isAccessibilityEnabled ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _isAccessibilityEnabled ? Icons.check_circle : Icons.error,
+            color: _isAccessibilityEnabled ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _isAccessibilityEnabled ? "Service is Active & Ready" : "Accessibility Service Offline",
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: _isAccessibilityEnabled ? const Color(0xFF047857) : const Color(0xFFB91C1C),
+              ),
+            ),
+          ),
+          if (!_isAccessibilityEnabled)
+            ShadButton(
+              onPressed: _showSettingsDialog,
+              backgroundColor: const Color(0xFFEF4444),
+              child: const Text('Resolve'),
+            ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildTaskCard() {
+    return _glassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(LucideIcons.terminal, size: 20, color: Color(0xFFEC4899)),
+              SizedBox(width: 8),
+              Text("Task Prompt", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ShadInput(
+            controller: _taskController,
+            placeholder: const Text('e.g., Post a sunset photo on Instagram'),
+            minLines: 3,
+            maxLines: 5,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControls() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (!_isRunning)
+          _glowingButton(
+            label: "Initialize Run",
+            icon: LucideIcons.play,
+            gradient: const LinearGradient(colors: [Color(0xFF00C9FF), Color(0xFF92FE9D)]),
+            onTap: _startTask,
+          ),
+        if (_isRunning && !_isPaused) ...[
+          _glowingButton(
+            label: "Pause",
+            icon: LucideIcons.pause,
+            gradient: const LinearGradient(colors: [Color(0xFFF5AF19), Color(0xFFF12711)]),
+            onTap: _pauseTask,
+          ),
+          const SizedBox(width: 16),
+        ],
+        if (_isRunning && _isPaused) ...[
+          _glowingButton(
+            label: "Resume",
+            icon: LucideIcons.play,
+            gradient: const LinearGradient(colors: [Color(0xFF00C9FF), Color(0xFF92FE9D)]),
+            onTap: _resumeTask,
+          ),
+          const SizedBox(width: 16),
+        ],
+        if (_isRunning)
+          _glowingButton(
+            label: "Halt",
+            icon: LucideIcons.square,
+            gradient: const LinearGradient(colors: [Color(0xFFED213A), Color(0xFF93291E)]),
+            onTap: _stopTask,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLogsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(LucideIcons.scrollText, size: 20, color: Color(0xFF64748B)),
+            SizedBox(width: 8),
+            Text("Execution Telemetry", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 250,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A), // Dark techy box for logs fits perfectly
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF334155), width: 2),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1A000000), // Black at ~10%
+                blurRadius: 20,
+                offset: Offset(0, 10),
+              )
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: _logs.isEmpty 
+              ? const Center(
+                  child: Text(
+                    "Awaiting instructions...",
+                    style: TextStyle(color: Color(0xFF475569), fontFamily: 'monospace', fontSize: 13),
+                  ),
+                )
+              : ListView.separated(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _logs.length,
+                  separatorBuilder: (context, index) => const Divider(color: Color(0xFF1E293B)),
+                  itemBuilder: (context, index) {
+                    final log = _logs[index];
+                    Color logColor = const Color(0xFF10B981); // Bright green
+                    if (log.contains("Failed") || log.contains("Error")) logColor = const Color(0xFFEF4444);
+                    if (log.contains("Action:")) logColor = const Color(0xFF38BDF8); // Bright blue
+                    
+                    return Text(
+                      log,
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 13, color: logColor),
+                    );
+                  },
+              ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Helpers
+
+  Widget _glassCard({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xB3FFFFFF), // White at ~70%
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2694A3B8), // Slate 400 at ~15%
+            blurRadius: 24,
+            offset: Offset(0, 8),
           )
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: child,
+    );
+  }
+
+  Widget _glowingButton({required String label, required IconData icon, required Gradient gradient, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(30),
+          // We can't easily grab gradient.colors.first as an opaque color here for the BoxShadow
+          // if it's dynamic, but since we supply solid gradients, we can use a generic shadow.
+          boxShadow: const [
+             BoxShadow(
+              color: Color(0x33000000), // Black 20%
+              blurRadius: 16,
+              offset: Offset(0, 8),
+            )
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Icon(
-                  _isAccessibilityEnabled ? Icons.check_circle : Icons.error,
-                  color: _isAccessibilityEnabled ? Colors.green : Colors.red,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _isAccessibilityEnabled
-                        ? "Accessibility Service Active"
-                        : "Inactive (Toggle OFF then ON in settings)",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                if (!_isAccessibilityEnabled)
-                  ElevatedButton(
-                    onPressed: () => AccessibilityService.openSettings(),
-                    child: const Text('ENABLE'),
-                  )
-              ],
-            ),
-            const Divider(),
-            TextField(
-              controller: _apiKeyController,
-              decoration: const InputDecoration(
-                labelText: 'Gemini API Key',
-                border: OutlineInputBorder(),
-              ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _taskController,
-              decoration: const InputDecoration(
-                labelText: 'What do you want to automate?',
-                hintText: 'e.g., Open calculator and type 5 + 5',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                if (!_isRunning)
-                  ElevatedButton.icon(
-                    onPressed: _startTask,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Start'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  ),
-                if (_isRunning && !_isPaused)
-                  ElevatedButton.icon(
-                    onPressed: _pauseTask,
-                    icon: const Icon(Icons.pause),
-                    label: const Text('Pause'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                  ),
-                if (_isRunning && _isPaused)
-                  ElevatedButton.icon(
-                    onPressed: _resumeTask,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Resume'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  ),
-                if (_isRunning)
-                  ElevatedButton.icon(
-                    onPressed: _stopTask,
-                    icon: const Icon(Icons.stop),
-                    label: const Text('Stop'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text("Execution Logs:", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(8.0),
-                decoration: BoxDecoration(
-                  color: Colors.black12,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: ListView.builder(
-                  itemCount: _logs.length,
-                  itemBuilder: (context, index) {
-                    return Text(
-                      _logs[index],
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-                    );
-                  },
-                ),
-              ),
-            ),
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.5),
+            )
           ],
         ),
       ),
