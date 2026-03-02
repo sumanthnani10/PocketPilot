@@ -1,8 +1,8 @@
 <a name="readme-top"></a>
 
 <div align="center">
-  <!-- You can replace this with your actual app logo -->
-  <img src="https://raw.githubusercontent.com/flutter/website/main/src/assets/images/docs/ui/layout/row-column-diagram.png" alt="Logo" width="120" height="120" style="border-radius: 20px;">
+  <!-- Replace this with your actual app logo, or just keep the emoji title! -->
+  <br />
 
   <h1 align="center">🤖 PocketPilot</h1>
 
@@ -219,7 +219,8 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ---
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[product-screenshot]: https://via.placeholder.com/1200x600/3E2723/FFFFFF?text=Pocket+Pilot+App+Screenshot+Here
+<!-- Replace the link below with the relative or absolute link to your screenshot. Examples: `assets/screenshot.png` or `https://example.com/screenshot.png` -->
+[product-screenshot]: flutter_01.png
 [Flutter.dev]: https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white
 [Flutter-url]: https://flutter.dev/
 [Kotlin.org]: https://img.shields.io/badge/Kotlin-0095D5?style=for-the-badge&logo=kotlin&logoColor=white
