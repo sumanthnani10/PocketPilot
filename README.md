@@ -59,10 +59,10 @@
 ### 🎥 Watch it in Action
 
 **Simple Task Execution:**  
-[▶️ Watch Simple Task Execution Video](assets/simple_workflow.webm)
+[▶️ Watch Simple Task Execution Video](assets/simple_workflow.mp4)
 
 **Complex Agentic Workflow:**  
-[▶️ Watch Complex Agentic Workflow Video](assets/complex_workflow.webm)
+[▶️ Watch Complex Agentic Workflow Video](assets/complex_workflow.mp4)
 
 > **Note:** Many local IDE Markdown previewers disable embedded video tags for security. Clicking the links above will open the videos in your default media player. When you push this to GitHub, the repository will recognize and natively play these files.
 
