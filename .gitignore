@@ -49,3 +49,6 @@ app.*.map.json
 test_out.txt
 test_err.log
 test_out.json
+
+# Project Plans
+PocketPilot Plan.md

@@ -58,9 +58,13 @@
 
 ### 🎥 Watch it in Action
 
-<video src="sample.webm" controls="controls" style="max-width: 100%;">
-  Your browser does not support the video tag.
-</video>
+**Simple Task Execution:**  
+[▶️ Watch Simple Task Execution Video](sample.webm)
+
+**Complex Agentic Workflow:**  
+[▶️ Watch Complex Agentic Workflow Video](sample2.webm)
+
+> **Note:** Many local IDE Markdown previewers disable embedded video tags for security. Clicking the links above will open the videos in your default media player. When you push this to GitHub, the repository will recognize and natively play these files.
 
 [![PocketPilot Product Screenshot][product-screenshot]](https://github.com/sumanthnani10/PocketPilot)
 
