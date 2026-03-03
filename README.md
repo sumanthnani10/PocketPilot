@@ -59,10 +59,10 @@
 ### 🎥 Watch it in Action
 
 **Simple Task Execution:**  
-[▶️ Watch Simple Task Execution Video](sample.webm)
+[▶️ Watch Simple Task Execution Video](assets/simple_workflow.webm)
 
 **Complex Agentic Workflow:**  
-[▶️ Watch Complex Agentic Workflow Video](sample2.webm)
+[▶️ Watch Complex Agentic Workflow Video](assets/complex_workflow.webm)
 
 > **Note:** Many local IDE Markdown previewers disable embedded video tags for security. Clicking the links above will open the videos in your default media player. When you push this to GitHub, the repository will recognize and natively play these files.
 
@@ -231,7 +231,7 @@ Distributed under the **PolyForm Noncommercial License 1.0.0**. See `LICENSE` fo
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- Replace the link below with the relative or absolute link to your screenshot. Examples: `assets/screenshot.png` or `https://example.com/screenshot.png` -->
-[product-screenshot]: flutter_01.png
+[product-screenshot]: assets/product_screenshot.png
 [Flutter.dev]: https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white
 [Flutter-url]: https://flutter.dev/
 [Kotlin.org]: https://img.shields.io/badge/Kotlin-0095D5?style=for-the-badge&logo=kotlin&logoColor=white
