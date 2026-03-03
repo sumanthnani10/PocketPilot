@@ -1,7 +1,7 @@
 <a name="readme-top"></a>
 
 <div align="center">
-  <!-- Replace this with your actual app logo, or just keep the emoji title! -->
+  <img src="assets/images/logo.png" width="150" alt="PocketPilot Logo" />
   <br />
 
   <h1 align="center">🤖 PocketPilot</h1>

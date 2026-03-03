@@ -345,15 +345,20 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  width: 40,
+                  height: 40,
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF8A2387), Color(0xFFE94057), Color(0xFFF27121)]),
-                    borderRadius: BorderRadius.circular(14),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
                     boxShadow: const [
-                      BoxShadow(color: Color(0x66E94057), blurRadius: 10, offset: Offset(0, 4)),
+                      BoxShadow(color: Color(0x66000000), blurRadius: 4, offset: Offset(0, 2)),
                     ],
                   ),
-                  child: const Icon(LucideIcons.rocket, color: Colors.white, size: 20),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 const Expanded(
