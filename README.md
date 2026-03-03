@@ -56,6 +56,12 @@
 
 ## 📖 About The Project
 
+### 🎥 Watch it in Action
+
+<video src="sample.webm" controls="controls" style="max-width: 100%;">
+  Your browser does not support the video tag.
+</video>
+
 [![PocketPilot Product Screenshot][product-screenshot]](https://github.com/sumanthnani10/PocketPilot)
 
 **PocketPilot** is a revolutionary, open-source **Android automation** framework that bridges the gap between **Large Language Models (LLMs)** and **on-device actions**. Think of it as a conversational **mobile RPA** (Robotic Process Automation) tool native to your smartphone. If you are looking for **agentic AI in mobile** or **Android RPA** solutions, PocketPilot provides an intelligent and adaptable approach.
