@@ -192,6 +192,18 @@ Return ONLY the suggestions as a bulleted list.
     final chatModel = GenerativeModel(
       model: 'gemini-2.5-flash',
       apiKey: _apiKey,
+      tools: [
+        Tool(functionDeclarations: [
+          FunctionDeclaration(
+            'propose_task',
+            'Use this function when the user explicitly asks you to perform an action on the screen on their behalf. Return a short explanation and the final executable task instruction.',
+            Schema(SchemaType.object, properties: {
+              'explanation': Schema(SchemaType.string, description: 'A short explanation of the task you understood the user wants to perform. Keep it brief. Provide the prompt for confirmation (e.g. "I will type hello. Shall I proceed?").'),
+              'task': Schema(SchemaType.string, description: 'The exact overarching task instruction to send to the automation agent (e.g. "Comment \'Looking great!\' on the first post" or "Like the first post").'),
+            }, requiredProperties: ['explanation', 'task']),
+          )
+        ])
+      ]
     );
 
     // Initial context for the conversation

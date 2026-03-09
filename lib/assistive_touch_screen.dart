@@ -73,7 +73,17 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
         final response = await _chatSession!.sendMessage(Content.text(query));
         if (mounted) {
           setState(() {
-            _messages.last['text'] = response.text ?? 'No response received.';
+            if (response.functionCalls.isNotEmpty) {
+              final call = response.functionCalls.first;
+              if (call.name == 'propose_task') {
+                _messages.last['text'] = call.args['explanation'] as String;
+                _messages.last['task'] = call.args['task'] as String;
+              } else {
+                _messages.last['text'] = 'Function call: ${call.name}';
+              }
+            } else {
+              _messages.last['text'] = response.text ?? 'No response received.';
+            }
             _isAnalyzing = false;
           });
           _scrollToBottom();
@@ -181,22 +191,39 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
                                   bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
                                 ),
                               ),
-                              child: MarkdownBody(
-                                data: msg['text'] ?? '',
-                                styleSheet: MarkdownStyleSheet(
-                                  p: TextStyle(
-                                    fontSize: 15,
-                                    color: isUser ? Colors.white : const Color(0xFF334155),
-                                    height: 1.4,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  MarkdownBody(
+                                    data: msg['text'] ?? '',
+                                    styleSheet: MarkdownStyleSheet(
+                                      p: TextStyle(
+                                        fontSize: 15,
+                                        color: isUser ? Colors.white : const Color(0xFF334155),
+                                        height: 1.4,
+                                      ),
+                                      strong: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isUser ? Colors.white : const Color(0xFF1E293B),
+                                      ),
+                                      listBullet: TextStyle(
+                                        color: isUser ? Colors.white : const Color(0xFF334155),
+                                      ),
+                                    ),
                                   ),
-                                  strong: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: isUser ? Colors.white : const Color(0xFF1E293B),
-                                  ),
-                                  listBullet: TextStyle(
-                                    color: isUser ? Colors.white : const Color(0xFF334155),
-                                  ),
-                                ),
+                                  if (msg.containsKey('task') && msg['task'] != null) ...[
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ShadButton(
+                                        child: const Text('Yes, proceed'),
+                                        onPressed: () {
+                                          Navigator.of(context).pop(msg['task']);
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           );
