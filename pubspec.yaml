@@ -38,6 +38,7 @@ dependencies:
   flutter_dotenv: ^5.2.1
   shadcn_ui: ^0.46.2
   shared_preferences: ^2.5.4
+  flutter_markdown: ^0.7.3
 
 dev_dependencies:
   flutter_test:

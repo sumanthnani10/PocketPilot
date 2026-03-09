@@ -3,6 +3,17 @@ import 'package:flutter/services.dart';
 class AccessibilityService {
   static const MethodChannel _channel = MethodChannel('pocketpilot/accessibility');
 
+  static void initialize(Function(String) onAssistiveTouchClicked) {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onAssistiveTouch') {
+        final String? imagePath = call.arguments['imagePath'];
+        if (imagePath != null) {
+          onAssistiveTouchClicked(imagePath);
+        }
+      }
+    });
+  }
+
   static Future<bool> isServiceEnabled() async {
     try {
       final bool result = await _channel.invokeMethod('isServiceEnabled');

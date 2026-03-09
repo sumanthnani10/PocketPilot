@@ -10,6 +10,19 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import android.view.WindowManager
+import android.widget.ImageView
+import android.widget.FrameLayout
+import android.graphics.drawable.GradientDrawable
+import android.graphics.Color
+import android.content.res.ColorStateList
+import android.graphics.PixelFormat
+import android.view.Gravity
+import android.view.MotionEvent
+import android.content.Intent
+import android.graphics.Bitmap
+import java.io.File
+import java.io.FileOutputStream
 
 class PilotAccessibilityService : AccessibilityService() {
 
@@ -17,9 +30,129 @@ class PilotAccessibilityService : AccessibilityService() {
         var instance: PilotAccessibilityService? = null
     }
 
+    private var windowManager: WindowManager? = null
+    private var floatingView: FrameLayout? = null
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        setupAssistiveTouch()
+    }
+
+    private fun setupAssistiveTouch() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+            floatingView = FrameLayout(this)
+            
+            val fab = ImageView(this)
+            fab.setImageResource(android.R.drawable.ic_menu_help)
+            
+            val shape = GradientDrawable()
+            shape.shape = GradientDrawable.OVAL
+            shape.setColor(Color.parseColor("#448AFF"))
+            fab.background = shape
+            fab.imageTintList = ColorStateList.valueOf(Color.WHITE)
+            
+            val layoutParams = FrameLayout.LayoutParams(150, 150)
+            fab.layoutParams = layoutParams
+            fab.setPadding(30, 30, 30, 30)
+
+            floatingView!!.addView(fab)
+
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                PixelFormat.TRANSLUCENT
+            )
+            params.gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            params.x = 20
+            params.y = 0
+
+            var initialX = 0
+            var initialY = 0
+            var initialTouchX = 0f
+            var initialTouchY = 0f
+            var isMoving = false
+
+            fab.setOnTouchListener { _, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        initialX = params.x
+                        initialY = params.y
+                        initialTouchX = event.rawX
+                        initialTouchY = event.rawY
+                        isMoving = false
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = (initialTouchX - event.rawX).toInt() // Gravity END means +x is left
+                        val dy = (event.rawY - initialTouchY).toInt()
+                        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                            isMoving = true
+                        }
+                        params.x = initialX + dx
+                        params.y = initialY + dy
+                        try {
+                            windowManager?.updateViewLayout(floatingView, params)
+                        } catch (e: Exception) {}
+                        true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        if (!isMoving) {
+                            onAssistiveTouchClicked()
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
+
+            try {
+                windowManager?.addView(floatingView, params)
+            } catch (e: Exception) {}
+        }
+    }
+
+    private fun onAssistiveTouchClicked() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val executor = mainExecutor
+            takeScreenshot(android.view.Display.DEFAULT_DISPLAY, executor, object : TakeScreenshotCallback {
+                override fun onSuccess(screenshotResult: AccessibilityService.ScreenshotResult) {
+                    val hardwareBuffer = screenshotResult.hardwareBuffer
+                    val bitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshotResult.colorSpace)
+                    if (bitmap != null) {
+                        saveScreenshotAndLaunch(bitmap)
+                    }
+                    screenshotResult.hardwareBuffer.close()
+                }
+
+                override fun onFailure(errorCode: Int) {
+                    showSystemToast("Screenshot failed: $errorCode")
+                }
+            })
+        }
+    }
+
+    private fun saveScreenshotAndLaunch(bitmap: Bitmap) {
+        try {
+            val timestamp = System.currentTimeMillis()
+            val file = File(cacheDir, "assistive_screenshot_$timestamp.png")
+            val out = FileOutputStream(file)
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            out.flush()
+            out.close()
+
+            val intent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra("action", "assistive_touch_clicked")
+                putExtra("imagePath", file.absolutePath)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
@@ -27,6 +160,12 @@ class PilotAccessibilityService : AccessibilityService() {
     override fun onInterrupt() {}
 
     override fun onDestroy() {
+        if (floatingView != null) {
+            try {
+                windowManager?.removeView(floatingView)
+            } catch (e: Exception) {}
+            floatingView = null
+        }
         if (instance == this) {
             instance = null
         }
@@ -161,26 +300,26 @@ class PilotAccessibilityService : AccessibilityService() {
     fun showSystemToast(message: String) {
         Handler(Looper.getMainLooper()).post {
             try {
-                val windowManager = getSystemService(WINDOW_SERVICE) as android.view.WindowManager
+                val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
                 val textView = android.widget.TextView(this).apply {
                     text = message
-                    setBackgroundColor(android.graphics.Color.parseColor("#CC000000"))
-                    setTextColor(android.graphics.Color.WHITE)
+                    setBackgroundColor(Color.parseColor("#CC000000"))
+                    setTextColor(Color.WHITE)
                     setPadding(32, 24, 32, 24)
                     textSize = 14f
-                    gravity = android.view.Gravity.CENTER
+                    gravity = Gravity.CENTER
                 }
 
-                val params = android.view.WindowManager.LayoutParams(
-                    android.view.WindowManager.LayoutParams.WRAP_CONTENT,
-                    android.view.WindowManager.LayoutParams.WRAP_CONTENT,
-                    android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                    android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                            android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                            android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                    android.graphics.PixelFormat.TRANSLUCENT
+                val params = WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    PixelFormat.TRANSLUCENT
                 ).apply {
-                    gravity = android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL
+                    gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
                     y = 200
                 }
 
@@ -192,7 +331,6 @@ class PilotAccessibilityService : AccessibilityService() {
                     } catch (e: Exception) {}
                 }, 2500)
             } catch (e: Exception) {
-                // Fallback attempt if window overlay fails
                 Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
             }
         }

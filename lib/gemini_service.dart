@@ -1,13 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'accessibility_service.dart';
 
 class GeminiService {
   final GenerativeModel _model;
+  final String _apiKey;
   List<Content> _chatHistory = [];
 
   GeminiService(String apiKey)
-      : _model = GenerativeModel(
+      : _apiKey = apiKey,
+        _model = GenerativeModel(
           model: 'gemini-2.5-flash',
           apiKey: apiKey,
           systemInstruction: Content.system('''
@@ -162,5 +165,46 @@ If you cannot proceed or need user help, call ask_help(reason).
       return 'exception: $e';
     }
     return 'unknown_command';
+  }
+
+  Future<String> analyzeScreenshot(String imagePath) async {
+    try {
+      final bytes = await File(imagePath).readAsBytes();
+      final prompt = TextPart('''
+Analyze this screenshot and identify the context (e.g., E-Commerce, Messaging, Navigation, Form Filling, Reading, Technical).
+Provide 3 short, actionable abstract suggestions for what the user can do or automate next on this screen.
+Return ONLY the suggestions as a bulleted list.
+''');
+      final imagePart = DataPart('image/png', bytes);
+      final response = await _model.generateContent([
+        Content.multi([prompt, imagePart])
+      ]);
+      return response.text ?? 'No suggestions available.';
+    } catch (e) {
+      return 'Error analyzing screenshot: $e';
+    }
+  }
+
+  Future<ChatSession> startChatSession(String imagePath, String initialSuggestions) async {
+    final bytes = await File(imagePath).readAsBytes();
+    final imagePart = DataPart('image/png', bytes);
+    
+    final chatModel = GenerativeModel(
+      model: 'gemini-2.5-flash',
+      apiKey: _apiKey,
+    );
+
+    // Initial context for the conversation
+    final history = [
+      Content.multi([
+        TextPart('Here is the screenshot of my current screen. Please retain this visual context for the rest of our chat.'),
+        imagePart,
+      ]),
+      Content.model([
+        TextPart('I have analyzed the screen and provided these suggestions:\n\n$initialSuggestions\n\nI am ready to help you with anything on this screen.'),
+      ]),
+    ];
+    
+    return chatModel.startChat(history: history);
   }
 }

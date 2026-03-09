@@ -7,6 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'settings_page.dart';
 import 'accessibility_service.dart';
 import 'gemini_service.dart';
+import 'assistive_touch_screen.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +27,7 @@ class PocketPilotApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ShadApp(
+      navigatorKey: navigatorKey,
       title: 'PocketPilot',
       debugShowCheckedModeBanner: false,
       theme: ShadThemeData(
@@ -75,6 +79,35 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
       parent: _animController,
       curve: Curves.easeInOut,
     ));
+
+    AccessibilityService.initialize((imagePath) {
+      if (mounted) {
+        if (_geminiService == null) {
+          final apiKey = _apiKey.trim();
+          if (apiKey.isNotEmpty) {
+            _geminiService = GeminiService(apiKey);
+          } else {
+            _log("Cannot suggest actions: Gemini API Key is missing.");
+            return;
+          }
+        }
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (ctx) => AssistiveTouchScreen(
+              imagePath: imagePath,
+              geminiService: _geminiService!,
+            ),
+          ),
+        ).then((query) {
+           if (query != null && query is String && query.isNotEmpty) {
+               setState(() {
+                  _taskController.text = query;
+               });
+               _startTask();
+           }
+        });
+      }
+    });
   }
 
   @override

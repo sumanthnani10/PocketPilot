@@ -7,13 +7,17 @@ import android.content.Intent
 import android.provider.Settings
 import android.content.ComponentName
 import android.text.TextUtils
+import android.os.Bundle
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "pocketpilot/accessibility"
+    private var methodChannel: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        
+        methodChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "isServiceEnabled" -> {
                     val expectedComponentName = ComponentName(this, PilotAccessibilityService::class.java)
@@ -115,6 +119,26 @@ class MainActivity : FlutterActivity() {
                 else -> {
                     result.notImplemented()
                 }
+            }
+        }
+        
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.getStringExtra("action")
+        if (action == "assistive_touch_clicked") {
+            val imagePath = intent.getStringExtra("imagePath")
+            if (imagePath != null && methodChannel != null) {
+                // To make sure flutter side is ready, post it with a slight delay or just call it directly
+                methodChannel?.invokeMethod("onAssistiveTouch", mapOf("imagePath" to imagePath))
             }
         }
     }
