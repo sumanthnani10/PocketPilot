@@ -2,16 +2,48 @@ package com.sumanth.pocketpilot
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode
 import io.flutter.plugin.common.MethodChannel
 import android.content.Intent
 import android.provider.Settings
 import android.content.ComponentName
 import android.text.TextUtils
 import android.os.Bundle
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "pocketpilot/accessibility"
     private var methodChannel: MethodChannel? = null
+
+    override fun getBackgroundMode(): BackgroundMode {
+        return BackgroundMode.transparent
+    }
+
+    private val taskReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val task = intent.getStringExtra("task")
+            if (task != null) {
+                methodChannel?.invokeMethod("startTaskFromOverlay", mapOf("task" to task))
+            }
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val filter = IntentFilter("com.sumanth.pocketpilot.START_TASK")
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(taskReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(taskReceiver, filter)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(taskReceiver)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -86,6 +118,10 @@ class MainActivity : FlutterActivity() {
                     } else {
                         result.error("UNAVAILABLE", "Accessibility Service not running.", null)
                     }
+                }
+                "moveTaskToBack" -> {
+                    val moved = moveTaskToBack(true)
+                    result.success(moved)
                 }
                 "tapOnCoordinate" -> {
                     val service = PilotAccessibilityService.instance

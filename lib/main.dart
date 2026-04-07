@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -18,7 +19,102 @@ Future<void> main() async {
   } catch (e) {
     debugPrint("Could not load .env file: \$e");
   }
+  final initialRoute = PlatformDispatcher.instance.defaultRouteName;
   runApp(const PocketPilotApp());
+}
+
+@pragma('vm:entry-point')
+void overlayMain() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint("Could not load .env file: \$e");
+  }
+  
+  String imagePath = '';
+  try {
+    const channel = MethodChannel('pocketpilot/accessibility');
+    imagePath = await channel.invokeMethod('getInitialImagePath');
+  } catch (e) {
+    debugPrint("Could not get initial image path: \$e");
+  }
+
+  runApp(OverlayApp(imagePath: imagePath));
+}
+
+class OverlayApp extends StatelessWidget {
+  final String imagePath;
+  const OverlayApp({super.key, required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return ShadApp(
+      debugShowCheckedModeBanner: false,
+      home: OverlayRootScreen(imagePath: imagePath),
+    );
+  }
+}
+
+class OverlayRootScreen extends StatefulWidget {
+  final String imagePath;
+  const OverlayRootScreen({super.key, required this.imagePath});
+  @override
+  State<OverlayRootScreen> createState() => _OverlayRootScreenState();
+}
+
+class _OverlayRootScreenState extends State<OverlayRootScreen> {
+  GeminiService? _geminiService;
+  late String _currentImagePath;
+  Key _screenKey = UniqueKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _currentImagePath = widget.imagePath;
+    _initService();
+
+    AccessibilityService.initialize((newImagePath) {
+      if (mounted) {
+        setState(() {
+          _currentImagePath = newImagePath;
+          _screenKey = UniqueKey(); // Force recreation of AssistiveTouchScreen widget
+        });
+      }
+    });
+  }
+
+  Future<void> _initService() async {
+    final prefs = await SharedPreferences.getInstance();
+    final apiKey = prefs.getString('GEMINI_API_KEY') ?? dotenv.env['GEMINI_API_KEY'] ?? '';
+    if (apiKey.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _geminiService = GeminiService(apiKey);
+        });
+      }
+    } else {
+      AccessibilityService.showGlobalToast("Cannot open overlay: API Key missing.");
+      AccessibilityService.closeOverlay();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_geminiService == null) {
+      return const Scaffold(backgroundColor: Colors.transparent);
+    }
+    return AssistiveTouchScreen(
+      key: _screenKey,
+      imagePath: _currentImagePath,
+      geminiService: _geminiService!,
+      onDismiss: () => AccessibilityService.closeOverlay(),
+      onTaskProceed: (task) {
+        AccessibilityService.closeOverlay();
+        AccessibilityService.startTaskLoop(task);
+      },
+    );
+  }
 }
 
 class PocketPilotApp extends StatelessWidget {
@@ -57,6 +153,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
 
   bool _isRunning = false;
   bool _isPaused = false;
+  bool _isOverlayActive = false;
   
   GeminiService? _geminiService;
   late AnimationController _animController;
@@ -81,33 +178,21 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     ));
 
     AccessibilityService.initialize((imagePath) {
-      if (mounted) {
-        if (_geminiService == null) {
-          final apiKey = _apiKey.trim();
-          if (apiKey.isNotEmpty) {
-            _geminiService = GeminiService(apiKey);
-          } else {
-            _log("Cannot suggest actions: Gemini API Key is missing.");
-            return;
-          }
-        }
-        navigatorKey.currentState?.push(
-          MaterialPageRoute(
-            builder: (ctx) => AssistiveTouchScreen(
-              imagePath: imagePath,
-              geminiService: _geminiService!,
-            ),
-          ),
-        ).then((query) {
-           if (query != null && query is String && query.isNotEmpty) {
-               setState(() {
-                  _taskController.text = query;
-               });
-               _startTask();
-           }
-        });
-      }
+      // Note: This trigger is historically caught by the main dashboard.
+      // But now, the service natively launches the overlay separate app.
     });
+
+    AccessibilityService.onStartTask = (task) async {
+      // Delay so the Android OS has enough time to switch away from the dying Overlay
+      // and bring the background application (e.g. YouTube) fully into front focus.
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (mounted) {
+        setState(() {
+          _taskController.text = task;
+        });
+        _startTask(); // Starts Agent loop
+      }
+    };
   }
 
   @override

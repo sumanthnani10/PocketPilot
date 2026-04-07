@@ -3,12 +3,19 @@ import 'package:flutter/services.dart';
 class AccessibilityService {
   static const MethodChannel _channel = MethodChannel('pocketpilot/accessibility');
 
+  static Function(String)? onStartTask;
+
   static void initialize(Function(String) onAssistiveTouchClicked) {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onAssistiveTouch') {
         final String? imagePath = call.arguments['imagePath'];
         if (imagePath != null) {
           onAssistiveTouchClicked(imagePath);
+        }
+      } else if (call.method == 'startTaskFromOverlay') {
+        final task = call.arguments['task'] as String?;
+        if (task != null && onStartTask != null) {
+          onStartTask!(task);
         }
       }
     });
@@ -52,6 +59,32 @@ class AccessibilityService {
     } on PlatformException catch (e) {
       print("Failed to perform action: '${e.message}'.");
       return false;
+    }
+  }
+
+  static Future<bool> moveTaskToBack() async {
+    try {
+      final bool result = await _channel.invokeMethod('moveTaskToBack');
+      return result;
+    } on PlatformException catch (e) {
+      print("Failed to move task to back: '${e.message}'.");
+      return false;
+    }
+  }
+
+  static Future<void> closeOverlay() async {
+    try {
+      await _channel.invokeMethod('closeOverlay');
+    } on PlatformException catch (e) {
+      print("Failed to close overlay: '${e.message}'.");
+    }
+  }
+
+  static Future<void> startTaskLoop(String task) async {
+    try {
+      await _channel.invokeMethod('startTaskLoop', {'task': task});
+    } on PlatformException catch (e) {
+      print("Failed to forward task loop overlay map hook: '${e.message}'.");
     }
   }
 

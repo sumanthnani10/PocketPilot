@@ -8,11 +8,15 @@ import 'gemini_service.dart';
 class AssistiveTouchScreen extends StatefulWidget {
   final String imagePath;
   final GeminiService geminiService;
+  final VoidCallback? onDismiss;
+  final Function(String)? onTaskProceed;
 
   const AssistiveTouchScreen({
     super.key,
     required this.imagePath,
     required this.geminiService,
+    this.onDismiss,
+    this.onTaskProceed,
   });
 
   @override
@@ -122,16 +126,27 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
-      appBar: AppBar(
-        title: const Text('Contextual Suggestions', style: TextStyle(color: Color(0xFF1E293B))),
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
-        elevation: 1,
-      ),
+      backgroundColor: Colors.black54,
       body: SafeArea(
         child: Column(
           children: [
+            // Close header
+            Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, right: 16),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () {
+                    if (widget.onDismiss != null) {
+                      widget.onDismiss!();
+                    } else {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+              ),
+            ),
             // Screenshot Preview
             Expanded(
               flex: 3,
@@ -218,7 +233,11 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
                                       child: ShadButton(
                                         child: const Text('Yes, proceed'),
                                         onPressed: () {
-                                          Navigator.of(context).pop(msg['task']);
+                                          if (widget.onTaskProceed != null) {
+                                            widget.onTaskProceed!(msg['task']!);
+                                          } else {
+                                            Navigator.of(context).pop(msg['task']);
+                                          }
                                         },
                                       ),
                                     ),

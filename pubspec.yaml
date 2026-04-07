@@ -39,6 +39,7 @@ dependencies:
   shadcn_ui: ^0.46.2
   shared_preferences: ^2.5.4
   flutter_markdown: ^0.7.3
+  flutter_overlay_window: ^0.5.0
 
 dev_dependencies:
   flutter_test:

@@ -144,10 +144,12 @@ class PilotAccessibilityService : AccessibilityService() {
             out.flush()
             out.close()
 
-            val intent = Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            val intent = Intent(this, OverlayActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NO_ANIMATION)
                 putExtra("action", "assistive_touch_clicked")
                 putExtra("imagePath", file.absolutePath)
+                putExtra("initial_route", "/overlay?imagePath=${file.absolutePath}")
+                putExtra("background_mode", "transparent")
             }
             startActivity(intent)
         } catch (e: Exception) {
