@@ -19,10 +19,17 @@ import android.content.res.ColorStateList
 import android.graphics.PixelFormat
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.KeyEvent
 import android.content.Intent
 import android.graphics.Bitmap
 import java.io.File
 import java.io.FileOutputStream
+
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.dart.DartExecutor
+import io.flutter.embedding.android.FlutterView
+import io.flutter.plugin.common.MethodChannel
+import io.flutter.FlutterInjector
 
 class PilotAccessibilityService : AccessibilityService() {
 
@@ -32,16 +39,104 @@ class PilotAccessibilityService : AccessibilityService() {
 
     private var windowManager: WindowManager? = null
     private var floatingView: FrameLayout? = null
+    
+    private var flutterEngine: FlutterEngine? = null
+    private var flutterView: FlutterView? = null
+    private var chatOverlayView: FrameLayout? = null
+    private var methodChannel: MethodChannel? = null
+    private var currentImagePath: String = ""
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         setupAssistiveTouch()
+        setupFlutterEngine()
+    }
+
+    private fun setupFlutterEngine() {
+        if (flutterEngine != null) return
+        try {
+            flutterEngine = FlutterEngine(this.applicationContext)
+            flutterEngine?.dartExecutor?.executeDartEntrypoint(
+                DartExecutor.DartEntrypoint(
+                    FlutterInjector.instance().flutterLoader().findAppBundlePath(),
+                    "overlayMain"
+                )
+            )
+            flutterEngine?.lifecycleChannel?.appIsResumed()
+            
+            methodChannel = MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "pocketpilot/accessibility")
+            setupMethodChannel()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun setupMethodChannel() {
+        methodChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "moveTaskToBack" -> result.success(true) // No task to move, we're an overlay
+                "performGlobalAction" -> {
+                    val actionName = call.argument<String>("action")
+                    if (actionName != null) {
+                        result.success(performGlobalActionByName(actionName))
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "performAction" -> {
+                    val path = call.argument<String>("path") ?: ""
+                    val action = call.argument<String>("action") ?: ""
+                    val arg = call.argument<String>("arg")
+                    result.success(performNodeAction(path, action, arg))
+                }
+                "getUITree" -> {
+                    val tree = getSimplifiedTree()
+                    if (tree != null) {
+                        result.success(tree)
+                    } else {
+                        result.error("UNAVAILABLE", "No UI Tree", null)
+                    }
+                }
+                "tapOnCoordinate" -> {
+                    val x = call.argument<Double>("x")?.toFloat() ?: 0f
+                    val y = call.argument<Double>("y")?.toFloat() ?: 0f
+                    result.success(tapOnCoordinate(x, y))
+                }
+                "showToast" -> {
+                    val msg = call.argument<String>("message") ?: ""
+                    showSystemToast(msg)
+                    result.success(true)
+                }
+                "isServiceEnabled" -> result.success(true)
+                "startTaskLoop" -> {
+                    val task = call.argument<String>("task")
+                    if (task != null) {
+                        val broadcast = Intent("com.sumanth.pocketpilot.START_TASK")
+                        broadcast.putExtra("task", task)
+                        sendBroadcast(broadcast)
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARG", "Task text required", null)
+                    }
+                }
+                "getInitialImagePath" -> {
+                    result.success(currentImagePath)
+                }
+                "closeOverlay" -> {
+                    Handler(Looper.getMainLooper()).post {
+                        hideChatOverlay()
+                    }
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     private fun setupAssistiveTouch() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
             floatingView = FrameLayout(this)
             
             val fab = ImageView(this)
@@ -87,7 +182,7 @@ class PilotAccessibilityService : AccessibilityService() {
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        val dx = (initialTouchX - event.rawX).toInt() // Gravity END means +x is left
+                        val dx = (initialTouchX - event.rawX).toInt() 
                         val dy = (event.rawY - initialTouchY).toInt()
                         if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
                             isMoving = true
@@ -117,43 +212,121 @@ class PilotAccessibilityService : AccessibilityService() {
 
     private fun onAssistiveTouchClicked() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            val executor = mainExecutor
-            takeScreenshot(android.view.Display.DEFAULT_DISPLAY, executor, object : TakeScreenshotCallback {
-                override fun onSuccess(screenshotResult: AccessibilityService.ScreenshotResult) {
-                    val hardwareBuffer = screenshotResult.hardwareBuffer
-                    val bitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshotResult.colorSpace)
-                    if (bitmap != null) {
-                        saveScreenshotAndLaunch(bitmap)
+            val wasOpen = chatOverlayView != null
+            if (wasOpen) {
+                hideChatOverlay()
+            }
+            
+            Handler(Looper.getMainLooper()).postDelayed({
+                val executor = mainExecutor
+                takeScreenshot(android.view.Display.DEFAULT_DISPLAY, executor, object : TakeScreenshotCallback {
+                    override fun onSuccess(screenshotResult: AccessibilityService.ScreenshotResult) {
+                        val hardwareBuffer = screenshotResult.hardwareBuffer
+                        val bitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshotResult.colorSpace)
+                        if (bitmap != null) {
+                            saveScreenshotAndShowOverlay(bitmap)
+                        }
+                        screenshotResult.hardwareBuffer.close()
                     }
-                    screenshotResult.hardwareBuffer.close()
-                }
 
-                override fun onFailure(errorCode: Int) {
-                    showSystemToast("Screenshot failed: $errorCode")
-                }
-            })
+                    override fun onFailure(errorCode: Int) {
+                        showSystemToast("Screenshot failed: \$errorCode")
+                        if (wasOpen) {
+                            showChatOverlay()
+                        }
+                    }
+                })
+            }, 150)
         }
     }
 
-    private fun saveScreenshotAndLaunch(bitmap: Bitmap) {
+    private fun saveScreenshotAndShowOverlay(bitmap: Bitmap) {
         try {
             val timestamp = System.currentTimeMillis()
-            val file = File(cacheDir, "assistive_screenshot_$timestamp.png")
+            val file = File(cacheDir, "assistive_screenshot_\$timestamp.png")
             val out = FileOutputStream(file)
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             out.flush()
             out.close()
 
-            val intent = Intent(this, OverlayActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NO_ANIMATION)
-                putExtra("action", "assistive_touch_clicked")
-                putExtra("imagePath", file.absolutePath)
-                putExtra("initial_route", "/overlay?imagePath=${file.absolutePath}")
-                putExtra("background_mode", "transparent")
-            }
-            startActivity(intent)
+            currentImagePath = file.absolutePath
+            showChatOverlay()
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    private fun showChatOverlay() {
+        Handler(Looper.getMainLooper()).post {
+            if (chatOverlayView != null) {
+                hideChatOverlay()
+            }
+            
+            if (flutterEngine == null) {
+                setupFlutterEngine()
+            }
+
+            // Notify flutter of the new image path
+            methodChannel?.invokeMethod("onAssistiveTouch", mapOf("imagePath" to currentImagePath))
+
+            chatOverlayView = object : FrameLayout(this) {
+                override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+                    if (ev.action == MotionEvent.ACTION_OUTSIDE) {
+                        hideChatOverlay()
+                        return true
+                    }
+                    return super.dispatchTouchEvent(ev)
+                }
+                override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+                    if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                        hideChatOverlay()
+                        return true
+                    }
+                    return super.dispatchKeyEvent(event)
+                }
+            }
+
+            flutterView = FlutterView(this)
+            flutterView?.attachToFlutterEngine(flutterEngine!!)
+            
+            chatOverlayView?.addView(flutterView)
+
+            val dm = resources.displayMetrics
+            val w = dm.widthPixels - (16 * dm.density).toInt() // small margin
+            val h = (dm.heightPixels * 0.55).toInt()
+            
+            val params = WindowManager.LayoutParams(
+                w,
+                h,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or 
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or 
+                WindowManager.LayoutParams.FLAG_DIM_BEHIND,
+                PixelFormat.TRANSLUCENT
+            )
+            params.dimAmount = 0.4f
+            params.gravity = Gravity.CENTER
+
+            try {
+                windowManager?.addView(chatOverlayView, params)
+                // Force flutter to paint/resume
+                flutterEngine?.lifecycleChannel?.appIsResumed()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun hideChatOverlay() {
+        if (chatOverlayView != null) {
+            try {
+                flutterView?.detachFromFlutterEngine()
+                windowManager?.removeView(chatOverlayView)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            chatOverlayView = null
+            flutterView = null
         }
     }
 
@@ -168,6 +341,9 @@ class PilotAccessibilityService : AccessibilityService() {
             } catch (e: Exception) {}
             floatingView = null
         }
+        hideChatOverlay()
+        flutterEngine?.destroy()
+        flutterEngine = null
         if (instance == this) {
             instance = null
         }

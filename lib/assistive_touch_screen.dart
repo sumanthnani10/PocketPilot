@@ -126,8 +126,17 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black54,
-      body: SafeArea(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(color: Color(0x33000000), blurRadius: 20, offset: Offset(0, 5))
+          ],
+        ),
         child: Column(
           children: [
             // Close header
@@ -136,7 +145,7 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(top: 8, right: 16),
                 child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  icon: const Icon(Icons.close, color: Colors.black54, size: 28),
                   onPressed: () {
                     if (widget.onDismiss != null) {
                       widget.onDismiss!();
