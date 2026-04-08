@@ -35,24 +35,8 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
   @override
   void initState() {
     super.initState();
-    _analyze();
-  }
-
-  Future<void> _analyze() async {
-    setState(() {
-      _isAnalyzing = true;
-      _messages.add({'role': 'ai', 'text': 'Analyzing your screen...'});
-    });
-    final suggestions = await widget.geminiService.analyzeScreenshot(widget.imagePath);
-    if (mounted) {
-      final chat = await widget.geminiService.startChatSession(widget.imagePath, suggestions);
-      setState(() {
-        _chatSession = chat;
-        final suggestionText = 'AI Context Suggestions:\n\n$suggestions';
-        _messages.last['text'] = suggestionText;
-        _isAnalyzing = false;
-      });
-    }
+    _chatSession = widget.geminiService.startChatSession();
+    _messages.add({'role': 'ai', 'text': 'How can I assist you with this screen?'});
   }
 
   Future<void> _onPromptSubmitted() async {
@@ -76,20 +60,59 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
       try {
         final response = await _chatSession!.sendMessage(Content.text(query));
         if (mounted) {
-          setState(() {
-            if (response.functionCalls.isNotEmpty) {
-              final call = response.functionCalls.first;
-              if (call.name == 'propose_task') {
+          if (response.functionCalls.isNotEmpty) {
+            final call = response.functionCalls.first;
+            
+            if (call.name == 'read_screen_context') {
+               setState(() {
+                 _messages.last['text'] = 'Taking a look at your screen...';
+               });
+               
+               // Let model know we'll send it next
+               await _chatSession!.sendMessage(Content.functionResponse('read_screen_context', {'status': 'Image will be provided in the following user message. Please process it.'}));
+               
+               final bytes = await File(widget.imagePath).readAsBytes();
+               final finalResponse = await _chatSession!.sendMessage(Content.multi([
+                 TextPart("Here is the screenshot:"),
+                 DataPart('image/png', bytes)
+               ]));
+               
+               if (mounted) {
+                 setState(() {
+                    if (finalResponse.functionCalls.isNotEmpty) {
+                        final fCall = finalResponse.functionCalls.first;
+                        if (fCall.name == 'propose_task') {
+                           _messages.last['text'] = fCall.args['explanation'] as String;
+                           _messages.last['task'] = fCall.args['task'] as String;
+                        } else {
+                           _messages.last['text'] = 'Function call: ${fCall.name}';
+                        }
+                    } else {
+                        _messages.last['text'] = finalResponse.text ?? 'No response received.';
+                    }
+                    _isAnalyzing = false;
+                 });
+                 _scrollToBottom();
+               }
+               return;
+            } else if (call.name == 'propose_task') {
+              setState(() {
                 _messages.last['text'] = call.args['explanation'] as String;
                 _messages.last['task'] = call.args['task'] as String;
-              } else {
-                _messages.last['text'] = 'Function call: ${call.name}';
-              }
+                _isAnalyzing = false;
+              });
             } else {
-              _messages.last['text'] = response.text ?? 'No response received.';
+              setState(() {
+                _messages.last['text'] = 'Function call: ${call.name}';
+                _isAnalyzing = false;
+              });
             }
-            _isAnalyzing = false;
-          });
+          } else {
+            setState(() {
+              _messages.last['text'] = response.text ?? 'No response received.';
+              _isAnalyzing = false;
+            });
+          }
           _scrollToBottom();
         }
       } catch (e) {

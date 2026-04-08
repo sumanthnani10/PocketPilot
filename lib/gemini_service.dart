@@ -185,13 +185,11 @@ Return ONLY the suggestions as a bulleted list.
     }
   }
 
-  Future<ChatSession> startChatSession(String imagePath, String initialSuggestions) async {
-    final bytes = await File(imagePath).readAsBytes();
-    final imagePart = DataPart('image/png', bytes);
-    
+  ChatSession startChatSession() {
     final chatModel = GenerativeModel(
       model: 'gemini-2.5-flash',
       apiKey: _apiKey,
+      systemInstruction: Content.system('You are PocketPilot, a helpful AI assistant. You can answer questions, hold normal conversations, and optionally perform actions on the user\'s screen when requested.'),
       tools: [
         Tool(functionDeclarations: [
           FunctionDeclaration(
@@ -201,22 +199,16 @@ Return ONLY the suggestions as a bulleted list.
               'explanation': Schema(SchemaType.string, description: 'A short explanation of the task you understood the user wants to perform. Keep it brief. Provide the prompt for confirmation (e.g. "I will type hello. Shall I proceed?").'),
               'task': Schema(SchemaType.string, description: 'The exact overarching task instruction to send to the automation agent (e.g. "Comment \'Looking great!\' on the first post" or "Like the first post").'),
             }, requiredProperties: ['explanation', 'task']),
+          ),
+          FunctionDeclaration(
+            'read_screen_context',
+            'Call this to request a screenshot of the user\'s current screen if you need visual context to answer their query or configure an automation task.',
+            Schema(SchemaType.object, properties: {}),
           )
         ])
       ]
     );
-
-    // Initial context for the conversation
-    final history = [
-      Content.multi([
-        TextPart('Here is the screenshot of my current screen. Please retain this visual context for the rest of our chat.'),
-        imagePart,
-      ]),
-      Content.model([
-        TextPart('I have analyzed the screen and provided these suggestions:\n\n$initialSuggestions\n\nI am ready to help you with anything on this screen.'),
-      ]),
-    ];
     
-    return chatModel.startChat(history: history);
+    return chatModel.startChat();
   }
 }
