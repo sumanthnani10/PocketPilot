@@ -28,6 +28,7 @@ import java.io.FileOutputStream
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.embedding.android.FlutterView
+import io.flutter.embedding.android.FlutterTextureView
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.FlutterInjector
 
@@ -286,14 +287,16 @@ class PilotAccessibilityService : AccessibilityService() {
                 }
             }
 
-            flutterView = FlutterView(this)
+            val textureView = FlutterTextureView(this)
+            textureView.isOpaque = false
+            flutterView = FlutterView(this, textureView)
             flutterView?.attachToFlutterEngine(flutterEngine!!)
             
             chatOverlayView?.addView(flutterView)
 
             val dm = resources.displayMetrics
             val w = dm.widthPixels - (16 * dm.density).toInt() // small margin
-            val h = (dm.heightPixels * 0.55).toInt()
+            val h = (dm.heightPixels * 0.75).toInt()
             
             val params = WindowManager.LayoutParams(
                 w,

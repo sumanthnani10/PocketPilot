@@ -130,6 +130,7 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
@@ -156,30 +157,8 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
                 ),
               ),
             ),
-            // Screenshot Preview
-            Expanded(
-              flex: 3,
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x33000000), blurRadius: 10, offset: Offset(0, 4))
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.file(
-                    File(widget.imagePath),
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-            ),
-
             // Chat Area
             Expanded(
-              flex: 5,
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 8),
