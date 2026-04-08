@@ -49,9 +49,20 @@ class OverlayApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShadApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: OverlayRootScreen(imagePath: imagePath),
+      color: Colors.transparent,
+      theme: ThemeData(
+        scaffoldBackgroundColor: Colors.transparent,
+        canvasColor: Colors.transparent,
+      ),
+      home: ShadTheme(
+        data: ShadThemeData(
+          brightness: Brightness.light,
+          colorScheme: const ShadZincColorScheme.light(primary: Color(0xFF4F46E5)),
+        ),
+        child: OverlayRootScreen(imagePath: imagePath),
+      ),
     );
   }
 }

@@ -294,6 +294,7 @@ class PilotAccessibilityService : AccessibilityService() {
             val textureView = FlutterTextureView(this)
             textureView.isOpaque = false
             flutterView = FlutterView(this, textureView)
+            flutterView?.setBackgroundColor(Color.TRANSPARENT)
             flutterView?.attachToFlutterEngine(flutterEngine!!)
             
             chatOverlayView?.addView(flutterView)
