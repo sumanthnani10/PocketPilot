@@ -163,22 +163,54 @@ class _AssistiveTouchScreenState extends State<AssistiveTouchScreen> {
         ),
         child: Column(
           children: [
-            // Close header
-            Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8, right: 16),
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.black54, size: 28),
-                  onPressed: () {
-                    if (widget.onDismiss != null) {
-                      widget.onDismiss!();
-                    } else {
-                      Navigator.of(context).pop();
-                    }
-                  },
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 16, left: 24),
+                  child: Row(
+                    children: [
+                      Image.asset('assets/images/logo.png', width: 24, height: 24),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'PocketPilot',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, right: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: "Clear Chat",
+                        icon: const Icon(Icons.delete_outline, color: Colors.black54, size: 26),
+                        onPressed: () {
+                          setState(() {
+                            _chatSession = widget.geminiService.startChatSession();
+                            _messages.clear();
+                            _messages.add({'role': 'ai', 'text': 'How can I assist you with this screen?'});
+                          });
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.black54, size: 26),
+                        onPressed: () {
+                          if (widget.onDismiss != null) {
+                            widget.onDismiss!();
+                          } else {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             // Chat Area
             Expanded(

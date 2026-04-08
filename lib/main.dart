@@ -78,7 +78,7 @@ class _OverlayRootScreenState extends State<OverlayRootScreen> {
       if (mounted) {
         setState(() {
           _currentImagePath = newImagePath;
-          _screenKey = UniqueKey(); // Force recreation of AssistiveTouchScreen widget
+          // Removed UniqueKey reset to preserve chat history
         });
       }
     });
@@ -105,7 +105,6 @@ class _OverlayRootScreenState extends State<OverlayRootScreen> {
       return const Scaffold(backgroundColor: Colors.transparent);
     }
     return AssistiveTouchScreen(
-      key: _screenKey,
       imagePath: _currentImagePath,
       geminiService: _geminiService!,
       onDismiss: () => AccessibilityService.closeOverlay(),
