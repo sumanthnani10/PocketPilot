@@ -271,13 +271,6 @@ class PilotAccessibilityService : AccessibilityService() {
             methodChannel?.invokeMethod("onAssistiveTouch", mapOf("imagePath" to currentImagePath))
 
             chatOverlayView = object : FrameLayout(this) {
-                override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-                    if (ev.action == MotionEvent.ACTION_OUTSIDE) {
-                        hideChatOverlay()
-                        return true
-                    }
-                    return super.dispatchTouchEvent(ev)
-                }
                 override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                     if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
                         hideChatOverlay()
@@ -303,7 +296,6 @@ class PilotAccessibilityService : AccessibilityService() {
                 h,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or 
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or 
                 WindowManager.LayoutParams.FLAG_DIM_BEHIND,
                 PixelFormat.TRANSLUCENT
             )
