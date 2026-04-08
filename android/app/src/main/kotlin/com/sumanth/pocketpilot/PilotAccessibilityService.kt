@@ -141,17 +141,28 @@ class PilotAccessibilityService : AccessibilityService() {
             floatingView = FrameLayout(this)
             
             val fab = ImageView(this)
-            fab.setImageResource(android.R.drawable.ic_menu_help)
+            fab.setImageResource(R.mipmap.launcher_icon)
+            fab.scaleType = ImageView.ScaleType.CENTER_CROP
+            fab.elevation = 8f
             
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
-            shape.setColor(Color.parseColor("#448AFF"))
+            shape.setColor(Color.WHITE) // White background behind the logo just in case it is transparent
             fab.background = shape
-            fab.imageTintList = ColorStateList.valueOf(Color.WHITE)
             
-            val layoutParams = FrameLayout.LayoutParams(150, 150)
+            // Native circular clipping to forcefully chop off square corners!
+            fab.outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+                    // Create a perfect circle outline matching the view's dimensions
+                    outline.setOval(0, 0, view.width, view.height)
+                }
+            }
+            fab.clipToOutline = true
+            
+            // Slightly larger bubble since it's an app logo
+            val layoutParams = FrameLayout.LayoutParams(160, 160)
             fab.layoutParams = layoutParams
-            fab.setPadding(30, 30, 30, 30)
+            fab.setPadding(0, 0, 0, 0) // Removed padding so the logo fills the entire circle perfectly
 
             floatingView!!.addView(fab)
 
